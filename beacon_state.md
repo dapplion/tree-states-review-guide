@@ -87,4 +87,3 @@ Part of the pre-hdiff database idea, to de-dupe the fields like pubkey and withd
 
 - **TODO(review)** Consumer code for new caches for epoch transition single pass
 
-- **:question:Q**: What are the consequences of not calling `state.build_caches`? And the costs of doing it? Is it free to re-call? This is called here pre-emptively, look if there are more places where it should be called https://github.com/sigp/lighthouse/pull/3206/files#diff-f1f4dab1ee31a59b5180e5d1baa0cd5dec78c10a03315816a8e20dc43dc227a8R72

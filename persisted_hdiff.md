@@ -87,6 +87,12 @@ fn state_diff_slot(slot: Slot) -> Slot {
 - **:question:Q**: `--hierarchy-exponents` help says "Cannot be changed after initialization". Is that correct, and if so, why?
 - **:question:Q**: Why has `partial_beacon_state` been deleted?
 - **:question:Q**: `forwards_iter.rs` changes are due to blocks being stores in freezer?
+- **:question:Q**: What was `PartialBeaconState` and rationale?
+  - A: Long ring vectors like block roots, state roots, historical roots, randao mixes, are stored separately. With complicated logic to re-create the state latter. For the origins of the network with smaller validator set it has decent disk space savings. Replaced completely with binary diffs which achieve the same for all fields. 
+- **:question:Q**: Was are compact states and rationale?
+  - A: Store the validator pubkey in a separate bucket since it's append only list. Saves 48 MB per 1M indexes. Still in the tree-states branch to save disk on full disk writes. Potentially only used by the hot db, freezer _should_ write the full disk a BeaconState since it's written once a year.
+- **:question:Q**: Freezer states with checkpoint sync?
+  - A: Not happening, freezer full snapshots writes only happen when you do a full backfill and "frontfill" of states replay. Or when you hit a snaphost point (once a year)
 
 
 ### Migration from v12 to v20

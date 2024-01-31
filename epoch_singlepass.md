@@ -6,6 +6,8 @@ A tree-states list/vector is much slower to iterate over a large amount of eleme
 - EthResearch post (summary of the above): https://ethresear.ch/t/formally-verified-optimised-epoch-processing/17359
 - Main PR into `tree-states` "Single-pass epoch processing #4483": https://github.com/sigp/lighthouse/pull/4483
 
+_**michaelsproul note**: Reviewers should look for discrepancies between the proof and the implementation, and issues in the proof itself_
+
 The gist of the change is implementing epoch processing as:
 
 ```python
@@ -51,10 +53,13 @@ struct BeaconState {
 ```
 
 - **:question:Q**: When the state is deserialized or created, all caches are set to default values. Those values seem incorrect or unsuable, so you must handle the status where the caches are default?
+  - A: Due the caches embeded in the state they have to be zeroed on load. But all guarded by checks of non-initialized
 - **:question:Q**: Why make `total_active_balance` optional, instead of initializing to zero?
-- **:question:Q**: Why switch `pubkey_cache` from `HashMap` to `HashTrieMap`?
-- **:question:Q**: Why switch `exit_cache` from `HashMap` to `HashTrieMap`?
+  - A: To detect non initialization, 0 is a valid value so best to start as None
+- **:question:Q**: Why switch `pubkey_cache` and `exit_cache` from `HashMap` to `HashTrieMap`?
+  - A: To have structural sharing, now there will be much more elements in memory
 - **:question:Q**: What are the consequences of not calling `state.build_caches`? And the costs of doing it? Is it free to re-call? This is called here pre-emptively, look if there are more places where it should be called https://github.com/sigp/lighthouse/pull/3206/files#diff-f1f4dab1ee31a59b5180e5d1baa0cd5dec78c10a03315816a8e20dc43dc227a8R72
+  - A: They should be free to call in loop, but not sure. With immutable state you can't build the cache, but with a mutable ref we always try to build pre-emptively. Now with tree-states there's a more top level wrapper `build_all_caches`, which builds caches that deal with state processing logic. All caches are structurally shared or cloneable.
 
 
 ### `total_active_balance`
@@ -62,6 +67,7 @@ struct BeaconState {
 On the single pass epoch processing `next_epoch_total_active_balance` is initialized to 0 and incremented on `process_single_effective_balance_update()`, then set into the state with `state.set_total_active_balance()`.
 
 - **:question:Q**: Many codepaths consider `total_active_balance` could be `None`. In what cases do you expected that to happen?
+  - A: See above, caches set to default value on load, None guards against them not being not initialized.
 - **:question:Q**: Is total_active_balance recomputed every epoch, or progressively updated?
   - A: recomputed every epoch as part of the single pass
 - **TODO**: Should add a metric for total iterations over the validators list
@@ -71,6 +77,7 @@ On the single pass epoch processing `next_epoch_total_active_balance` is initial
 
 Progressive balances cache tracks only target balance in stable. With tree-states it tracks source, target and head balances.
 - **:question:Q**: Why is it necessary to track source,head now?
+  - A: We use those total in process rewards and penalties. Justification and finality only cares about target, but now we need the rest for single pass rewards computation
 
 PR diff extends existing interface to track the extra flag balances.
 
@@ -102,7 +109,7 @@ Cache of values which are uniquely determined at the start of an epoch.
 
 - **:question:Q** Why is this cache necessary with tree-states?
   - A: `effective_balances` is necessary to speed up attestation processing, similar to the slashing cache
-  - A: `base_rewards`: **TODO**
+  - A: `base_rewards`: Just makes sense to cache, 6 or 7 arithmetics operations
   - A: `activation_queue`: Pre-computed list of validators that _could_ be eligible for activation.
   - A: `effective_balance_increment`: (@lion guess) to prevent having to reach for the `spec` object
 
@@ -135,14 +142,17 @@ pub struct ActivationQueue {
 
 Speculative values added in `process_single_registry_update`, and read at the start of the single pass run checking the full eligibility criteria.
 
-- **question:Q**: Where is `queue` pruned?
+- **:question:Q**: Where is `queue` pruned?
+  - A: Should be re-computed every epoch, **TODO**: try to find the codepath
 
 
 ### `ParticipationCache`
 
-- Is this a leftover from unstable? It's not used in state transition code, but only indirectly in ef tests + rewards calculations.
-- `initialize_progressive_balances_cache()` is never called with `Some(ParticipationCache)`, so on each epoch transition there's a full loop over all validators.
-- The rewards test does not test production code
+- **:question:Q**: Is this a leftover from unstable? It's not used in state transition code, but only indirectly in ef tests + rewards calculations.
+  - A: Yes, it's a leftover, could be removed
+- **:question:Q**: `initialize_progressive_balances_cache()` is never called with `Some(ParticipationCache)`, so on each epoch transition there's a full loop over all validators.
+  - A: In `initialize_progressive_balances_cache()` the first condition will exit early most of the times, because the progressive balances cache is initialized.
+- **TODO**: The rewards test does not test production code
 
 
 ### `PreEpochCache`
@@ -155,6 +165,7 @@ Used to collect active balances from validators. Its lifetime is just during `pr
 `process_epoch_single_pass` is called in `altair::process_epoch`. The original source of those steps (`altair/inactivity_updates.rs`, `altair/rewards_and_penalties.rs`, `effective_balance_updates.rs`, `slashings.rs`, `registry_updates.rs`) is kept for testing and non-performance critical calls (rewards calculation). They call into `process_epoch_single_pass` with configs to only execute that one step.
 
 - **:question:Q**: Why is base not using single pass?
+  - Phase0 attestation processing requires very different logic, not worth it to build a second single pass for phase0
 
 **TODO**: Review
 

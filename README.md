@@ -5,9 +5,9 @@ This doc is meant to assist reviewers with [Upgrade in-memory and on-disk state 
 Overview of big items to review (in suggested order):
 
 - **[New sigp/milhouse lib](./milhouse.md)**: underlying lib for in-memory representation
-- **[Updated BeaconState](./beaconstate.md)**: new in-memory representation
+- **[Updated BeaconState](./beacon_state.md)**: new in-memory representation
 - **[Epoch processing single pass](./epoch_singlepass.md)**: Epoch processing with a single iteration over big lists
-- **[Updated BeaconChain](#./beacon_chain.md)**: Misc changes, updated caches and consumers of everything else
+- **[Updated BeaconChain](./beacon_chain.md)**: Misc changes, updated caches and consumers of everything else
 - **[Persisted HDiff](./persisted_hdiff.md)**: Persisted Hierarchical diff-states (HDiff) + blocks persisted in cold store indexed by slot
 
 
