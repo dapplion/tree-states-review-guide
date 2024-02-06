@@ -74,19 +74,25 @@ fn state_diff_slot(slot: Slot) -> Slot {
 **Questions**
 
 - **:question:Q**: In `HotStateSummary::new`, `diff_base_slot` is resolved into a state root looking up the `state.state_roots`. Is `diff_base_slot` never older than 8192 slots? 
+  - A: epochs-per-state-diff limits that and SHOULD be set up to 8192, FIX: put a bound, add verify_epochs_per_state_diff.
 - **:question:Q**: From `HotColdDB::is_stored_as_full_state`, will it store every new state that has been finalized? What's the writing frequency in practice? The fact that this function is dynamic, when is it called respective to the split point?
   - A: Yes, every time the finalization migration runs. There's a flag epochs-per-migration to make it less frequent and save IO.
 - **:question:Q**: Why does `HotColdDB::store_hot_state :1268` need to do a `self.get_hot_state()` call to immediately compute a base buffer from it? 
+  - A: We never store the buffer to disk, so we need to compute the diff. TODO: Rename HDiff to Diff, misnomer. TODO 1282 bad error name 
 - **:question:Q**: Is there a limit on how many diff layers a state needs to regenerate the base state?
   - A: No it will just keep applying diffs. Part of the complexity of the diff algorithm is that the diff frequency for the hot DB is adjustable dynamically. So you can restart with a different `--epochs-per-state-diff` and everything should just work
 - **:question:Q**: What are the exponents from `HierarchyConfig`
   - A: Explained here https://github.com/sigp/lighthouse/pull/3206/files#diff-fdb1b9480ecf7dbd64bd5acbb641a040103fb96cc366ad700adf23a4e6aa9c32R602-R614
 - **:question:Q**: How does the setting `hierarchy-exponents` interact and differ from `epoch-per-state-diff`? AFAIU the logic to decide to write a diff is in `HotColdDB::state_diff_slot` and only considers `epoch_per_state_diff`.
+  - A: They don't interact, epochs-per-state-diff only for hot db states, hierarchy is for the freezer. In the hot is still diffs but rooted in the finalized states and diff against the prev state of 4 epochs against. TODO 1576 should be metrics. TODO: not rebase and persist every state on load hot state
 - **:question:Q**: Given a specific exponents setting, what's the ratio of total diff layers to full states?
   - A: With default settings `[5,9,11,13,16,18,21]` the most frequent diff layer is stored every 2^5 slots and a full snapshot every 2^21 slots, so the ratio is 2^16 = 65536.
 - **:question:Q**: `--hierarchy-exponents` help says "Cannot be changed after initialization". Is that correct, and if so, why?
+  - A: In the hot database the epoch-per-state-diff is dynamic. In the freezer DB hierarchy exponents is NOT dynamic, changing it requires a full sync.
 - **:question:Q**: Why has `partial_beacon_state` been deleted?
+  - A: We don't need it anymore, 
 - **:question:Q**: `forwards_iter.rs` changes are due to blocks being stores in freezer?
+  - A: Not just where the blocks are stored, but we abolished the chunked business
 - **:question:Q**: What was `PartialBeaconState` and rationale?
   - A: Long ring vectors like block roots, state roots, historical roots, randao mixes, are stored separately. With complicated logic to re-create the state latter. For the origins of the network with smaller validator set it has decent disk space savings. Replaced completely with binary diffs which achieve the same for all fields. 
 - **:question:Q**: Was are compact states and rationale?
