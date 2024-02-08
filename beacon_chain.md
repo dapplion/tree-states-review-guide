@@ -2,6 +2,8 @@
 
 _^ Look at the other sections first, start with milhouse_
 
+`BeaconChain` diff is a less straightforward mix of moving the caches around + consuming the caches differently + HDiff changes.
+
 ```diff
 struct BeaconChain {
 -    /// A cache dedicated to block processing.

@@ -28,6 +28,7 @@ for (
     ...
 ```
 
+Before diving into the Rust code it's best to fimiliarize yourself with the [python spec for `process_epoch_single_pass`](https://github.com/sigp/verified-consensus/blob/main/docs/description_and_informal_proof.md#single-pass-epoch-processing-process_epoch_single_pass), it's good! The spec is being proofed formally so the chance of logic errors is low. Focus on the spec translation into Rust code.
 
 ## Caches
 
@@ -52,10 +53,8 @@ struct BeaconState {
     pub epoch_cache: EpochCache, // new cache in tree-states
 ```
 
-- **:question:Q**: When the state is deserialized or created, all caches are set to default values. Those values seem incorrect or unsuable, so you must handle the status where the caches are default?
-  - A: Due the caches embeded in the state they have to be zeroed on load. But all guarded by checks of non-initialized
-- **:question:Q**: Why make `total_active_balance` optional, instead of initializing to zero?
-  - A: To detect non initialization, 0 is a valid value so best to start as None
+Since the caches are part of the state struct, they are set to default values on deserialization. Those values are incorrect, but all are guarded by checks of non-initialized. `total_active_balance` is an `Option` because 0 is a valid value, so the initialization check is cleaner with `None`.
+
 - **:question:Q**: Why switch `pubkey_cache` and `exit_cache` from `HashMap` to `HashTrieMap`?
   - A: To have structural sharing, now there will be much more elements in memory
 - **:question:Q**: What are the consequences of not calling `state.build_caches`? And the costs of doing it? Is it free to re-call? This is called here pre-emptively, look if there are more places where it should be called https://github.com/sigp/lighthouse/pull/3206/files#diff-f1f4dab1ee31a59b5180e5d1baa0cd5dec78c10a03315816a8e20dc43dc227a8R72
@@ -93,14 +92,12 @@ pub struct SlashingsCache {
 }
 ```
 
-On attestation processing check against this cache instead of the state itself.
+On attestation processing check against this cache instead of the state itself. Traversing the validators list for each attestation bit is not acceptable, so this cache prevents that with minimal memory cost.
 
 ```rust
-            let validator_slashed = state.slashings_cache().is_slashed(index);
+let validator_slashed = state.slashings_cache().is_slashed(index);
 ```
-
-- **:question:Q** Why is this cache necessary?
-  - A: (@lion guess) The purpose of the cache is speed up attestation processing, which has to check for each validator if it has been slashed. Doing the check against the actual validators list requires to many tree traversals.
+_[process_operations.rs#L154)](https://github.com/sigp/lighthouse/blob/ae6620e59d3fc0f0928f4502a40f11f5027ddefa/consensus/state_processing/src/per_block_processing/process_operations.rs#L154)_
 
 
 ### `epoch_cache`

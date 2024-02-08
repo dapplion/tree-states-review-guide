@@ -1,5 +1,7 @@
 # Updated BeaconState type
 
+This page details the new meta-programing added to the `BeaconState` struct. The new caches are part of the epoch single pass page.
+
 ## superstruct / metastruct
 
 Milhouse does not support Containers. So the logic to hash, rebase, etc is handled in the consensus/types crate with the help of [`metastruct`](https://github.com/sigp/metastruct). The metastruct macro outputs macros to iterate ovand map over struct fields. For example:
@@ -69,10 +71,7 @@ Creates a map function with itself (same type) that is mutable, fallible and onl
 
 ## Validator mutable
 
-- **:question:Q** Why do Validator fields become functions?
-  - A: Put the pubkey inside an Arc and the rest of fields in [`ValidatorMutable`](https://github.com/sigp/lighthouse/blob/6262be72199d0cf81a8701076b8434c9914e211a/consensus/types/src/validator.rs#L22-L25). *TODO* I guess to dedup memory now that there are many more states in memory?
-
-**TODO(review)** `Validator::could_be_eligible_for_activation_at` correctness and similar methods
+Before tree-states, the entire validators list is cloned. With tree-states we can clone only on write. Since pubkeys are immutable, we can de-duplicate them across validator record mutations. So `Arc` the pubkey and put the rest of mutable fields in [`ValidatorMutable`](https://github.com/sigp/lighthouse/blob/6262be72199d0cf81a8701076b8434c9914e211a/consensus/types/src/validator.rs#L22-L25).
 
 - **:question:Q** Where is `ExecutionPayloadHeaderRefMut` needed?
   - A: Type safe wrapper to set the new payload header to the state, on `process_execution_payload`
@@ -82,8 +81,4 @@ Creates a map function with itself (same type) that is mutable, fallible and onl
 
 Part of the pre-hdiff database idea, to de-dupe the fields like pubkey and withdrawal creds. Now it is used only when storing full states in the hot DB. Makes states 35% smaller in uncompressed serialized SSZ size.
 
-
-## New caches consumer
-
-- **TODO(review)** Consumer code for new caches for epoch transition single pass
 

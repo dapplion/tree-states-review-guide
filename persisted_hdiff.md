@@ -59,6 +59,14 @@ impl BytesDiff {
 Computes the increment for each balance item from source to target. Then compresses the resulting concatenated u64 with `zstd` compression library. *(My asumption)* since most balances do not change at once their delta is 0, so diff + compression results in big savings.
 
 
+### Freezer DB layout
+
+![db freezer layout](./img/db_freezer_layout.png)
+
+### Hot DB layout
+
+![db hot layout](./img/db_hot_layout.png)
+
 ### When is HDiff computed?
 
 1. `HotColdDB::store_cold_state_as_diff(from_slot: Slot)`, the base buffer is decided by `from_slot`.
